@@ -94,6 +94,7 @@ namespace clip2
             if(!fc.Folder_Exists(tb_folder.Text))
             {
                 Directory.CreateDirectory(tb_folder.Text);
+                int aaaaaa = 1;
             }
            
             common_name = tb_folder.Text + @"\" + tb_filename.Text;
