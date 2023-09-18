@@ -3,11 +3,14 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Authentication;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -20,12 +23,10 @@ namespace clip2
     {
         ClipboardMonitor clipboardMonitor; //클립보트 모니터 객체
 
-       
-        static int a = 1;                   //파일 중복방지를 위해 파일 뒤에 붙는 숫자 
+        static string common_name;          //저장할 파일의 공통 이름의 fullname
 
-        static Image temp_img= null;        //파일이 2개씩 저장 되는걸 방지하기 위해 임시로 이미지를 저장해 놓는 객체
-
-        static string common_name;          //저장할 파일의 공통 이름
+        static string dir;      //저장할 폴더
+        static string ffff;     //저장할 파일 공통이름
 
         public Form1()
         {
@@ -35,6 +36,7 @@ namespace clip2
             
             clipboardMonitor.ClipboardChanged += ClipboardMonitor_ClipboardChanged;
             //클립보드가 바뀔경우 이벤트 발생
+
             
             tb_folder.Text = Application.StartupPath+@"\WinCaptureSaver";   //기본 저장 폴더
             tb_filename.Text = DateTime.Now.ToString("yyyy-MM-dd_HH.mm.ss");//기본 공통 이름
@@ -52,31 +54,61 @@ namespace clip2
         /// <param name="e"></param>
         private static void ClipboardMonitor_ClipboardChanged(object sender, EventArgs e)
         {
-            
+
             Image image = Clipboard.GetImage();         //클립보드에서 이미지 가져옴
-            yooja_File_Control fc= new yooja_File_Control();    
-            
+            yooja_File_Control fc = new yooja_File_Control();
+
             if (image == null)      //복사한게 텍스트 같은 이미지가 아닐 경우 리턴
                 return;
 
-            if (temp_img == null)   //이전에 캡쳐한 이미지가 없는경우=처음 캡쳐한 경우
+            image.Save(fc.File_OverLap(common_name + ".png"));  //이미지를 저장
+            image.Dispose();
+
+            FileInfo[] capturefiles = new DirectoryInfo(dir).GetFiles(ffff + "*");
+            
+
+            if (capturefiles.Length == 1 | capturefiles.Length==0) return;
+
+            bool comp = imagecompare(
+                capturefiles[capturefiles.Length-1], 
+                capturefiles[capturefiles.Length-2]); //같은 파일인지 비교, 
+                                                        //한번 캡쳐할때마다 2장의 같은 사진이 생성되어서 한장 삭제하려고
+            if(comp )
             {
-                
-                image.Save(fc.File_OverLap(common_name + ".png"));  //이미지를 저장
-                temp_img = image;   //temp_img에 현재 캡쳐한 이미지 
-            }
-            else                    //처음 캡쳐한게 아닌겨웅
-            {
-                if (temp_img.Height != image.Height
-                    & temp_img.Width != image.Height) //다른 사진이면 저장
-                                                      //단순 크기 비교라 오류가 있을 수 있음
+                capturefiles[capturefiles.Length-1].Delete();
+                capturefiles = new DirectoryInfo(dir).GetFiles(ffff + "*");
+                if (capturefiles.Length >=10000)
                 {
-                    image.Save(fc.File_OverLap(common_name + ".png"));
-                    temp_img = image;
                     
+                    MessageBox.Show(
+                        "캡쳐한 파일이 너무 많아, 프로그램을 종료합니다." ,
+                        "수량초과",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    Application.ExitThread();
+                    Environment.Exit(0);
+
                 }
             }
 
+            
+            
+        }
+
+       static bool imagecompare(FileInfo a, FileInfo b)
+        {
+            bool file_size =a.Length== b.Length;
+            
+                Image a_i = Image.FromFile(a.FullName);
+                Image b_i=Image.FromFile(b.FullName);
+                
+               bool picture_size=
+                    a_i.Width== b_i.Width &&
+                    a_i.Height== b_i.Height;
+            a_i.Dispose();
+            b_i.Dispose();
+            
+            return file_size && picture_size;
         }
 
         /// <summary>
@@ -86,23 +118,26 @@ namespace clip2
         /// <param name="e"></param>
         private void bt_start_Click(object sender, EventArgs e)
         {
-            yooja_File_Control fc=new yooja_File_Control();
+
+            yooja_File_Control fc = new yooja_File_Control();
 
             if (!fc.Folder_Write_Enable(tb_folder.Text))//쓰기 권한 있는지 확인
             {
-                MessageBox.Show("아래 폴더의 쓰기 권한이 없습니다.\n다른 폴더를 선택해주세요.\n\n" +tb_folder.Text,
+                MessageBox.Show("아래 폴더의 쓰기 권한이 없습니다.\n다른 폴더를 선택해주세요.\n\n" + tb_folder.Text,
                     "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            if(!fc.Folder_Exists(tb_folder.Text)) //존재안하는 폴더라면 생성
+            if (!fc.Folder_Exists(tb_folder.Text)) //존재안하는 폴더라면 생성
             {
                 Directory.CreateDirectory(tb_folder.Text);
-                
+
             }
-           
+
             common_name = tb_folder.Text + @"\" + tb_filename.Text;//공동 이름 
+            dir = tb_folder.Text;
+            ffff = tb_filename.Text;
 
             tb_folder.Enabled = false;
             tb_filename.Enabled = false;
@@ -113,7 +148,7 @@ namespace clip2
 
             bt_stop.Enabled = true;
 
-            
+
 
             clipboardMonitor.Start();       //클립보드 변경사항 있는지 모니터링 시작
 
@@ -257,8 +292,10 @@ namespace clip2
         protected override void WndProc(ref Message m)
         {
             int aaa = m.Msg;
+            string aa = aaa.ToString("X");
             if (aaa != 28)
             {
+                
                 if (m.Msg == WM_DRAWCLIPBOARD)
                 {
                     ClipboardChanged?.Invoke(this, EventArgs.Empty);

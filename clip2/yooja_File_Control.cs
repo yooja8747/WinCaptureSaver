@@ -51,16 +51,18 @@ namespace yooja
         {
             int sameNameFiles_count = 0;
             string return_FileName = file_name;
-            FileInfo rf =new FileInfo(return_FileName);
-            
-            
+            FileInfo original =new FileInfo(return_FileName);
+            FileInfo rf= new FileInfo(original.DirectoryName + @"\" +
+                        Path.GetFileNameWithoutExtension(file_name) + "(" + sameNameFiles_count.ToString("0000") + ")" + original.Extension);
+
+
             while (true)
             {
                 if (rf.Exists)
                 {
                     sameNameFiles_count++;
                     rf = new FileInfo(rf.DirectoryName +@"\"+ 
-                        Path.GetFileNameWithoutExtension(file_name) + "(" + sameNameFiles_count + ")" + rf.Extension);
+                        Path.GetFileNameWithoutExtension(file_name) + "(" + sameNameFiles_count.ToString("0000") + ")" + rf.Extension);
                     
                 }
                 else
@@ -68,6 +70,7 @@ namespace yooja
                     break;
                 }
             }
+           
             return rf.FullName;
         }
 
